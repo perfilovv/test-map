@@ -1,11 +1,14 @@
 import axios from 'axios';
-import { XMLParser } from 'fast-xml-parser';
+import { XMLBuilder, XMLParser } from 'fast-xml-parser';
 import { API_CONFIG } from '../config/api';
+import L from 'leaflet';
 
 export interface ZwsLayer {
   name: string;
   title: string;
 }
+
+const parser = new XMLParser();
 
 export async function getZwsLayers(): Promise<ZwsLayer[]> {
   const xmlBody = `<?xml version="1.0" encoding="UTF-8"?>
@@ -18,10 +21,9 @@ export async function getZwsLayers(): Promise<ZwsLayer[]> {
   try {
     const res = await axios.post(API_CONFIG.ZWS_URL, xmlBody);
 
-    const parser = new XMLParser({ trimValues: true });
     const json = parser.parse(res.data);
 
-    let layersData = json.zwsResponse?.GetLayerList?.Layer;
+    const layersData = json.zwsResponse?.GetLayerList?.Layer;
     if (!layersData) {
       return [];
     }
@@ -34,5 +36,85 @@ export async function getZwsLayers(): Promise<ZwsLayer[]> {
     console.error('Ошибка при загрузке слоёв ZWS:', err);
     return [];
   }
+}
+
+export async function selectElemByXY(
+  layer: string,
+  lat: number,
+  lng: number,
+  scale: number
+): Promise<{ elemId?: string }> {
+  const point = L.Projection.SphericalMercator.project({ lat, lng });
+
+  const xmlBody = `<?xml version="1.0" encoding="UTF-8"?>
+    <zulu-server service='zws' version='1.0.0'>
+      <Command lang='ru'>
+        <SelectElemByXY>
+          <Layer>${layer}</Layer>
+          <X>${point.y}</X>
+          <Y>${point.x}</Y>
+          <Scale>${scale}</Scale>
+          <CRS>EPSG:3857</CRS>
+          <Geometry>No</Geometry>
+          <Attr>No</Attr>
+          <ModeList>No</ModeList>
+        </SelectElemByXY>
+      </Command>
+    </zulu-server>`;
+
+  try {
+    const res = await axios.post(API_CONFIG.ZWS_URL, xmlBody);
+    const json = parser.parse(res.data);
+
+    const elem = json?.zwsResponse?.SelectElemByXY?.Element;
+    return { elemId: elem?.ElemID };
+  } catch (err) {
+    console.error('Ошибка при SelectElemByXY:', err);
+    return {};
+  }
+}
+
+export async function getElemByID(layer: string, elemId: string): Promise<string | null> {
+  const xmlBody = `<?xml version="1.0" encoding="UTF-8"?>
+    <zulu-server service='zws' version='1.0.0'>
+      <Command lang='ru'>
+        <GetElemsByID>
+          <Layer>${layer}</Layer>
+          <ElemID>${elemId}</ElemID>
+          <Geometry>Yes</Geometry>
+          <Attr>No</Attr>
+          <QueryList>No</QueryList>
+          <ModeList>Yes</ModeList>
+          <BookAsReference>Yes</BookAsReference>
+          <GeometryLinks>EPSG:3857</GeometryLinks>
+        </GetElemsByID>
+      </Command>
+    </zulu-server>`;
+
+  try {
+    const res = await axios.post(API_CONFIG.ZWS_URL, xmlBody);
+    const json = parser.parse(res.data);
+
+    const elem = json?.zwsResponse?.GetElemsByID?.Element;
+    if (!elem?.Geometry?.KML) {
+      return null;
+    }
+
+    const builder = new XMLBuilder();
+    return builder.build(elem.Geometry.KML);
+  } catch (err) {
+    console.error('Ошибка при GetElemsByID:', err);
+    return null;
+  }
+}
+
+export async function getElemByXYWithGeometry(layer: string, lat: number, lng: number, scale: number) {
+  const { elemId } = await selectElemByXY(layer, lat, lng, scale);
+  if (!elemId) {
+    return { elemId: null, geometryKML: null };
+  }
+
+  const geometryKML = await getElemByID(layer, elemId);
+  return { elemId, geometryKML };
 }
 
