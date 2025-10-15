@@ -21,3 +21,12 @@ npm install
 ```bash
 npm run dev
 ```
+
+Локальный запуск собранного проекта:
+
+```bash
+git switch gh-pages
+cd react-map-app
+npm install
+npm run preview
+```
