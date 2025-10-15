@@ -1,6 +1,7 @@
 # test-map
 
 Проект для работы с картами и Zulu Web Service (ZWS) с использованием React, TypeScript и Leaflet.
+<img width="2559" height="1313" alt="image" src="https://github.com/user-attachments/assets/3ea99fe8-938e-4c01-8bbf-92ae552af578" />
 
 ---
 
