@@ -74,7 +74,13 @@ export async function selectElemByXY(
   }
 }
 
-export async function getElemByID(layer: string, elemId: string): Promise<string | null> {
+export async function getElemByID(
+  layer: string,
+  elemId: string
+): Promise<{
+  kml: string;
+  attrs: Record<string, string>;
+} | null> {
   const xmlBody = `<?xml version="1.0" encoding="UTF-8"?>
     <zulu-server service='zws' version='1.0.0'>
       <Command lang='ru'>
@@ -82,7 +88,7 @@ export async function getElemByID(layer: string, elemId: string): Promise<string
           <Layer>${layer}</Layer>
           <ElemID>${elemId}</ElemID>
           <Geometry>Yes</Geometry>
-          <Attr>No</Attr>
+          <Attr>Yes</Attr>
           <QueryList>No</QueryList>
           <ModeList>Yes</ModeList>
           <BookAsReference>Yes</BookAsReference>
@@ -101,7 +107,21 @@ export async function getElemByID(layer: string, elemId: string): Promise<string
     }
 
     const builder = new XMLBuilder();
-    return builder.build(elem.Geometry.KML);
+    const kml = builder.build(elem.Geometry.KML);
+    const attrs: Record<string, string> = {};
+    const fields = elem?.Records?.Record?.Field;
+
+    if (fields && Array.isArray(fields)) {
+      fields.forEach((field) => {
+        const key = field.UserName || field.Name;
+        const value = field.Value;
+
+        if (key && value) {
+          attrs[key] = value;
+        }
+      });
+    }
+    return { kml, attrs };
   } catch (err) {
     console.error('Ошибка при GetElemsByID:', err);
     return null;
@@ -111,10 +131,15 @@ export async function getElemByID(layer: string, elemId: string): Promise<string
 export async function getElemByXYWithGeometry(layer: string, lat: number, lng: number, scale: number) {
   const { elemId } = await selectElemByXY(layer, lat, lng, scale);
   if (!elemId) {
-    return { elemId: null, geometryKML: null };
+    return { elemId: null };
   }
 
-  const geometryKML = await getElemByID(layer, elemId);
-  return { elemId, geometryKML };
+  const elemData = await getElemByID(layer, elemId);
+  if (!elemData) {
+    return { geometryKML: null, attrs: null };
+  }
+  const { kml, attrs } = elemData;
+
+  return { elemId, geometryKML: kml, attrs };
 }
 
