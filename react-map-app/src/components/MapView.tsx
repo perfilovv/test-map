@@ -5,6 +5,7 @@ import LayerZWS from './LayerZWS';
 import { getElemByXYWithGeometry, getZwsLayers, type ZwsLayer } from '../services/zwsService';
 import L from 'leaflet';
 import { kml } from 'togeojson';
+import ModalInfo from './ModalInfo';
 
 interface Data {
   elemId?: string;
@@ -88,69 +89,7 @@ const MapView: FC = () => {
           ))}
       </MapContainer>
 
-      {modalVisible && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0,0,0,0.4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 400,
-          }}
-          onClick={() => setModalVisible(false)}
-        >
-          <div
-            style={{
-              background: 'white',
-              borderRadius: '8px',
-              padding: '20px',
-              width: '250px',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ margin: '0px' }}>Информация об объекте</h3>
-            {selectedData.attrs ? (
-              <ul style={{ listStyleType: 'none', padding: 0 }}>
-                {Object.entries(selectedData.attrs).map(([key, val]) => (
-                  <li
-                    key={key}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      padding: '4px',
-                    }}
-                  >
-                    <b>{key}:</b>
-
-                    <span>{val}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>Нет данных об атрибутах</p>
-            )}
-            <button
-              style={{
-                marginTop: '10px',
-                padding: '8px 16px',
-                backgroundColor: '#518ac4ff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-              onClick={() => setModalVisible(false)}
-            >
-              Закрыть
-            </button>
-          </div>
-        </div>
-      )}
+      <ModalInfo visible={modalVisible} attrs={selectedData.attrs} onClose={() => setModalVisible(false)} />
     </>
   );
 };
